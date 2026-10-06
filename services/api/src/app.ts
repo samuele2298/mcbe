@@ -16,6 +16,8 @@ import { TablebaseClient } from './modules/engine/tablebase.js';
 import { coachRoutes } from './modules/coach/routes.js';
 import { CoachService } from './modules/coach/service.js';
 import { gamesRoutes } from './modules/games/routes.js';
+import { importRoutes } from './modules/imports/routes.js';
+import { openingRoutes } from './modules/openings/routes.js';
 import { knowledgeRoutes } from './modules/knowledge/routes.js';
 import { KnowledgeRetriever } from './modules/knowledge/retrieval.js';
 import { createEmbedder, type Embedder } from './lib/embedder.js';
@@ -74,12 +76,14 @@ export async function buildApp(
   await app.register(analysisRoutes, { engine, tablebase });
   const onGameFinished = deps.onGameFinished ?? (async () => {});
   const play = new PlayService(db, engine, onGameFinished);
-  await app.register(playRoutes, { play });
+  await app.register(playRoutes, { play, db });
   await app.register(gamesRoutes, { db, requeue: onGameFinished });
+  await app.register(importRoutes, { db, enqueue: onGameFinished });
 
   const embedder = deps.embedder === undefined ? createEmbedder() : deps.embedder;
   const retriever = new KnowledgeRetriever(db, embedder);
   await app.register(knowledgeRoutes, { db, retriever });
+  await app.register(openingRoutes, { db, retriever });
   await app.register(coachRoutes, { db, coach: new CoachService(db, engine, tablebase, retriever) });
 
   return app;

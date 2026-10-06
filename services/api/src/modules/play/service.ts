@@ -1,6 +1,10 @@
 import type { Chess } from 'chess.js';
 import type { Db } from '../../db/index.js';
 import { load } from '../../chess/detectors/board.js';
+import { whitePovCp } from '../../chess/eval.js';
+import type { AdaptiveEvent } from '../../db/types.js';
+import { opportunityMoves, type Motif } from '../adaptive/opportunity.js';
+import { getRating, recordResult } from '../profile/stats.js';
 import { diagnose, type Diagnosis } from '../analysis/diagnose.js';
 import { evaluateMove, type MoveEvaluation } from '../analysis/move-eval.js';
 import type { EngineClient } from '../engine/client.js';
@@ -37,6 +41,13 @@ export interface GameState {
   adaptiveTarget: string | null;
   /** in allenamento, dopo un errore si aspetta la scelta dell'utente: riprovare o continuare */
   awaitingDecision: boolean;
+}
+
+export interface Opportunity {
+  motif: string;
+  found: boolean;
+  expected: string[];
+  expectedSan: string[];
 }
 
 export class GameError extends Error {
@@ -80,6 +91,8 @@ type GameRow = {
   termination: string | null;
   analysis_status: string;
   adaptive_target: string | null;
+  adaptive_motif: string | null;
+  adaptive_events: AdaptiveEvent[];
 };
 
 export class PlayService {
@@ -116,7 +129,7 @@ export class PlayService {
   private async row(userId: string, id: string): Promise<GameRow> {
     const g = await this.db
       .selectFrom('games')
-      .select(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target'])
+      .select(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target', 'adaptive_motif', 'adaptive_events'])
       .where('id', '=', id)
       .where('user_id', '=', userId)
       .where('source', 'in', ['play', 'adaptive'])
@@ -131,11 +144,26 @@ export class PlayService {
 
   async start(
     userId: string,
-    opts: { color: 'white' | 'black' | 'random'; elo: number; mode: GameMode; startFen?: string; adaptiveTarget?: string },
+    opts: {
+      color: 'white' | 'black' | 'random';
+      elo: number;
+      mode: GameMode;
+      startFen?: string;
+      adaptiveTarget?: string;
+      adaptiveMotif?: Motif | null;
+      openingMoves?: string[];
+    },
   ): Promise<GameState> {
-    const color = opts.color === 'random' ? (Math.random() < 0.5 ? 'white' : 'black') : opts.color;
     const startFen = opts.startFen ?? START_FEN;
-    load(startFen); // valida
+    const startPos = load(startFen); // valida
+    for (const m of opts.openingMoves ?? []) startPos.move({ from: m.slice(0, 2), to: m.slice(2, 4), promotion: m[4] });
+    // da una posizione "a metà" l'utente gioca il lato al tratto, salvo scelta esplicita
+    const color =
+      opts.color === 'random'
+        ? opts.startFen && !opts.openingMoves?.length
+          ? startPos.turn() === 'w' ? 'white' : 'black'
+          : Math.random() < 0.5 ? 'white' : 'black'
+        : opts.color;
     const g = await this.db
       .insertInto('games')
       .values({
@@ -147,11 +175,13 @@ export class PlayService {
         opponent_elo: opts.elo,
         opponent_name: `Stockfish ${opts.elo}`,
         adaptive_target: opts.adaptiveTarget ?? null,
+        adaptive_motif: opts.adaptiveMotif ?? null,
+        moves: opts.openingMoves ?? [],
       })
-      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target'])
+      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target', 'adaptive_motif', 'adaptive_events'])
       .executeTakeFirstOrThrow();
     const userIsWhite = color === 'white';
-    const whiteToMove = startFen.split(' ')[1] === 'w';
+    const whiteToMove = startPos.turn() === 'w';
     if (userIsWhite !== whiteToMove) return this.computerMove(userId, g);
     return this.toState(g);
   }
@@ -165,7 +195,7 @@ export class PlayService {
         ...(end ? { result: end.result, termination: end.termination, finished_at: new Date() } : {}),
       })
       .where('id', '=', g.id)
-      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target'])
+      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target', 'adaptive_motif', 'adaptive_events'])
       .executeTakeFirstOrThrow();
     if (end) await this.finished(updated.id);
     return updated;
@@ -179,13 +209,70 @@ export class PlayService {
   private async computerMove(userId: string, g: GameRow): Promise<GameState> {
     const c = replayGame(g.start_fen, g.moves);
     if (outcome(c)) return this.toState(g);
-    const uci = await this.engine.move(c.fen(), g.opponent_elo ?? undefined, computerMovetime(g.opponent_elo));
+    const didactic = g.mode === 'adaptive' && g.adaptive_motif ? await this.didacticMove(g, c.fen()) : null;
+    const uci = didactic?.uci ?? (await this.engine.move(c.fen(), g.opponent_elo ?? undefined, computerMovetime(g.opponent_elo)));
     if (!uci) return this.toState(g);
     c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] });
+    if (didactic) {
+      const events: AdaptiveEvent[] = [
+        ...g.adaptive_events,
+        { ply: g.moves.length + 2, motif: g.adaptive_motif!, expected: didactic.expected, found: null },
+      ];
+      await this.db.updateTable('games').set({ adaptive_events: JSON.stringify(events) }).where('id', '=', g.id).execute();
+      g = { ...g, adaptive_events: events };
+    }
     return this.toState(await this.save(g, [...g.moves, uci], c));
   }
 
-  async move(userId: string, id: string, uci: string): Promise<{ state: GameState; feedback: MoveFeedback | null }> {
+  /**
+   * Livello C: tra le mosse buone del computer (entro una tolleranza) ne sceglie una che lascia
+   * all'utente un'occasione nel motivo debole. Non sempre: al massimo una ogni 8 semimosse.
+   */
+  private async didacticMove(g: GameRow, fen: string): Promise<{ uci: string; expected: string[] } | null> {
+    const last = g.adaptive_events.at(-1)?.ply ?? 0;
+    if (g.moves.length < 6 || g.moves.length + 2 - last < 8 || Math.random() > 0.6) return null;
+    const whiteToMove = fen.split(' ')[1] === 'w';
+    const an = await this.engine.analyse(fen, { depth: 12, multipv: 4 });
+    if (!an.lines.length) return null;
+    const score = (l: (typeof an.lines)[number]) => (whiteToMove ? 1 : -1) * whitePovCp(l, whiteToMove);
+    const best = score(an.lines[0]!);
+    // partita già decisa: niente regali
+    if (Math.abs(best) > 400) return null;
+    for (const l of an.lines) {
+      const move = l.pv[0];
+      if (!move || best - score(l) > 250) continue;
+      const after = load(fen);
+      after.move({ from: move.slice(0, 2), to: move.slice(2, 4), promotion: move[4] });
+      if (after.isGameOver()) continue;
+      const expected = opportunityMoves(after.fen(), g.adaptive_motif as Motif);
+      if (expected.length) return { uci: move, expected };
+    }
+    return null;
+  }
+
+  /** Verifica se la mossa dell'utente coglie l'occasione concessa (e aggiorna il profilo). */
+  private async checkOpportunity(userId: string, g: GameRow, fenBefore: string, uci: string): Promise<Opportunity | null> {
+    const idx = g.adaptive_events.findIndex((e) => e.found === null && e.ply === g.moves.length + 1);
+    if (idx < 0) return null;
+    const ev = g.adaptive_events[idx]!;
+    const found = ev.expected.includes(uci);
+    const events = g.adaptive_events.map((e, i) => (i === idx ? { ...e, found } : e));
+    await this.db.updateTable('games').set({ adaptive_events: JSON.stringify(events) }).where('id', '=', g.id).execute();
+    const rating = (await getRating(this.db, userId, 'global', 'all'))?.rating ?? 1500;
+    await recordResult(this.db, userId, [{ dimension: 'theme', key: ev.motif }], found, { rating, rd: 150 });
+    return {
+      motif: ev.motif,
+      found,
+      expected: ev.expected,
+      expectedSan: ev.expected.map((m) => sanOf(fenBefore, m) ?? m),
+    };
+  }
+
+  async move(
+    userId: string,
+    id: string,
+    uci: string,
+  ): Promise<{ state: GameState; feedback: MoveFeedback | null; opportunity: Opportunity | null }> {
     const g = await this.row(userId, id);
     if (g.result) throw new GameError('game_over');
     if (this.pending.has(id)) throw new GameError('not_your_turn');
@@ -200,6 +287,7 @@ export class PlayService {
     }
     const played = c.history({ verbose: true }).at(-1)!;
     const normalized = played.from + played.to + (played.promotion ?? '');
+    const opportunity = g.mode === 'adaptive' ? await this.checkOpportunity(userId, g, fenBefore, normalized) : null;
 
     let feedback: MoveFeedback | null = null;
     if (g.mode === 'training') {
@@ -221,13 +309,13 @@ export class PlayService {
       if (bad) {
         const saved = await this.save(g, [...g.moves, normalized], c);
         if (!saved.result) this.pending.add(id);
-        return { state: this.toState(saved), feedback };
+        return { state: this.toState(saved), feedback, opportunity };
       }
     }
 
     const saved = await this.save(g, [...g.moves, normalized], c);
-    if (saved.result) return { state: this.toState(saved), feedback };
-    return { state: await this.computerMove(userId, saved), feedback };
+    if (saved.result) return { state: this.toState(saved), feedback, opportunity };
+    return { state: await this.computerMove(userId, saved), feedback, opportunity };
   }
 
   /** Allenamento: ritira l'ultima mossa dell'utente (dopo un errore) per riprovare. */
@@ -245,7 +333,7 @@ export class PlayService {
       .updateTable('games')
       .set({ moves })
       .where('id', '=', id)
-      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target'])
+      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target', 'adaptive_motif', 'adaptive_events'])
       .executeTakeFirstOrThrow();
     return this.toState(updated);
   }
@@ -265,7 +353,7 @@ export class PlayService {
       .updateTable('games')
       .set({ result: g.user_color === 'white' ? '0-1' : '1-0', termination: 'resign', finished_at: new Date() })
       .where('id', '=', id)
-      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target'])
+      .returning(['id', 'start_fen', 'moves', 'user_color', 'mode', 'opponent_elo', 'result', 'termination', 'analysis_status', 'adaptive_target', 'adaptive_motif', 'adaptive_events'])
       .executeTakeFirstOrThrow();
     if (updated.moves.length >= 4) await this.finished(id);
     return this.toState({ ...updated, analysis_status: updated.moves.length >= 4 ? 'queued' : updated.analysis_status });

@@ -8,6 +8,8 @@ const UserSchema = Type.Object({
   role: Type.Union([Type.Literal('user'), Type.Literal('admin')]),
   displayName: Type.Union([Type.String(), Type.Null()]),
   ratingPuzzle: Type.Integer(),
+  lichessUsername: Type.Union([Type.String(), Type.Null()]),
+  chesscomUsername: Type.Union([Type.String(), Type.Null()]),
 });
 
 const SessionSchema = Type.Object({

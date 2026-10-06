@@ -9,6 +9,8 @@ export interface PublicUser {
   role: Role;
   displayName: string | null;
   ratingPuzzle: number;
+  lichessUsername: string | null;
+  chesscomUsername: string | null;
 }
 
 export class AuthError extends Error {
@@ -25,6 +27,8 @@ interface UserRow {
   role: Role;
   display_name: string | null;
   rating_puzzle: number;
+  lichess_username: string | null;
+  chesscom_username: string | null;
 }
 
 function toPublic(u: UserRow): PublicUser {
@@ -34,10 +38,12 @@ function toPublic(u: UserRow): PublicUser {
     role: u.role,
     displayName: u.display_name,
     ratingPuzzle: u.rating_puzzle,
+    lichessUsername: u.lichess_username,
+    chesscomUsername: u.chesscom_username,
   };
 }
 
-const userColumns = ['id', 'email', 'role', 'display_name', 'rating_puzzle'] as const;
+const userColumns = ['id', 'email', 'role', 'display_name', 'rating_puzzle', 'lichess_username', 'chesscom_username'] as const;
 
 export class AuthService {
   constructor(

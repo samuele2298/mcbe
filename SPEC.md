@@ -9,6 +9,22 @@ Versione 2.1 · ottobre 2026 · brief per Claude Code
 > v2.1: multiutente base, solo Flutter web, VPS condiviso con ~2 GB liberi
 > (embedding esterni, una sola istanza Stockfish), analisi live solo in modalità allenamento.
 
+> **Stato (ottobre 2026): fasi 0-6 implementate.** Scostamenti dalla specifica decisi in
+> corso d'opera, con il motivo:
+> - **Scacchiera:** `chessground`/`dartchess` usano interi a 64 bit e non compilano in
+>   JavaScript per Flutter web: scacchiera propria con la logica del pacchetto `chess`
+>   (port di chess.js).
+> - **Motore:** il worker è un servizio HTTP interno con coda a priorità (gioco e coach
+>   davanti all'analisi in background); pg-boss è usato per i lavori asincroni dell'API
+>   (analisi partite, note di profilo notturne). Stockfish 19 ufficiale.
+> - **Opening explorer:** Lichess ora lo riserva agli utenti autenticati: serve
+>   `LICHESS_TOKEN`; senza, l'albero usa le mosse di libro del database ECO.
+> - **Import partite:** sincrono nella richiesta (fino a 100 partite), analisi in coda.
+> - **Tagging della KB:** chiamate dirette al modello economico invece della Batch API
+>   (volumi piccoli, risultato immediato da rivedere nel diff).
+> - **Coach:** con Claude Opus 5.5 e fallback lato server sui rifiuti dei classificatori;
+>   senza chiave risponde con i soli fatti verificati.
+
 ---
 
 ## 1. Obiettivo

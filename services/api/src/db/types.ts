@@ -123,6 +123,13 @@ export interface TablebaseCacheTable {
   created_at: Timestamp;
 }
 
+export interface AdaptiveEvent {
+  ply: number;
+  motif: string;
+  expected: string[];
+  found: boolean | null;
+}
+
 export interface GamesTable {
   id: Generated<string>;
   user_id: string;
@@ -138,6 +145,8 @@ export interface GamesTable {
   opponent_elo: number | null;
   opponent_name: string | null;
   adaptive_target: string | null;
+  adaptive_events: ColumnType<AdaptiveEvent[], string | undefined, string>;
+  adaptive_motif: string | null;
   analysis_status: Generated<'none' | 'queued' | 'running' | 'done' | 'failed'>;
   accuracy: number | null;
   played_at: Timestamp;
@@ -234,6 +243,22 @@ export interface ProfileNotesTable {
   created_at: Timestamp;
 }
 
+export interface RepertoireLinesTable {
+  id: Generated<string>;
+  user_id: string;
+  name: string;
+  color: 'white' | 'black';
+  moves: string[];
+  eco: string | null;
+  created_at: Timestamp;
+}
+
+export interface ExplorerCacheTable {
+  key: string;
+  result: unknown;
+  created_at: Timestamp;
+}
+
 export interface Database {
   users: UsersTable;
   refresh_tokens: RefreshTokensTable;
@@ -253,4 +278,6 @@ export interface Database {
   knowledge_chunks: KnowledgeChunksTable;
   coach_explanations: CoachExplanationsTable;
   profile_notes: ProfileNotesTable;
+  repertoire_lines: RepertoireLinesTable;
+  explorer_cache: ExplorerCacheTable;
 }

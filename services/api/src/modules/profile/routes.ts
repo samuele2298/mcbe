@@ -5,6 +5,7 @@ import type { Db } from '../../db/index.js';
 import { themeLabel } from '../../chess/themes.js';
 import { labelFor } from './labels.js';
 import { generateProfileNote } from './notes.js';
+import { weeklyPlan } from './plan.js';
 
 const Weakness = Type.Object({
   dimension: Type.String(),
@@ -146,4 +147,6 @@ export const profileRoutes: FastifyPluginAsyncTypebox<{ db: Db }> = async (app, 
     { config: { rateLimit: { max: 3, timeWindow: '1 hour' } }, schema: { tags: ['profile'] } },
     async (req) => ({ note: await generateProfileNote(db, req.user.sub) }),
   );
+
+  app.get('/me/plan', { schema: { tags: ['profile'] } }, async (req) => weeklyPlan(db, req.user.sub));
 };
