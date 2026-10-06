@@ -13,7 +13,7 @@ export interface UsersTable {
   lichess_username: string | null;
   chesscom_username: string | null;
   rating_puzzle: Generated<number>;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface RefreshTokensTable {
@@ -22,7 +22,7 @@ export interface RefreshTokensTable {
   token_hash: string;
   expires_at: Timestamp;
   revoked_at: Timestamp | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface PuzzlesTable {
@@ -66,7 +66,7 @@ export interface PuzzleAttemptsTable {
   mode: 'theme' | 'storm' | 'review' | 'adaptive' | 'mix';
   rating_before: number | null;
   rating_after: number | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface WeaknessStatsTable {
@@ -78,7 +78,7 @@ export interface WeaknessStatsTable {
   rating: Generated<number>;
   rd: Generated<number>;
   vol: Generated<number>;
-  updated_at: Generated<Timestamp>;
+  updated_at: Timestamp;
 }
 
 export interface StormRunsTable {
@@ -91,7 +91,7 @@ export interface StormRunsTable {
   best_combo: number | null;
   duration_s: number | null;
   finished_at: Timestamp | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface SrsCardsTable {
@@ -114,13 +114,13 @@ export interface EngineCacheTable {
   depth: number;
   multipv: number;
   result: unknown;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface TablebaseCacheTable {
   fen: string;
   result: unknown;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface GamesTable {
@@ -140,7 +140,7 @@ export interface GamesTable {
   adaptive_target: string | null;
   analysis_status: Generated<'none' | 'queued' | 'running' | 'done' | 'failed'>;
   accuracy: number | null;
-  played_at: Generated<Timestamp>;
+  played_at: Timestamp;
   finished_at: Timestamp | null;
 }
 
@@ -175,7 +175,7 @@ export interface MistakesTable {
   severity: string;
   explanation: unknown;
   puzzle_id: string | null;
-  created_at: Generated<Timestamp>;
+  created_at: Timestamp;
 }
 
 export interface Database {

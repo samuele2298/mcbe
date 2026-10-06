@@ -13,6 +13,7 @@ import { healthRoutes } from './modules/health/routes.js';
 import { EngineClient } from './modules/engine/client.js';
 import { analysisRoutes } from './modules/engine/routes.js';
 import { TablebaseClient } from './modules/engine/tablebase.js';
+import { gamesRoutes } from './modules/games/routes.js';
 import { playRoutes } from './modules/play/routes.js';
 import { PlayService } from './modules/play/service.js';
 import { profileRoutes } from './modules/profile/routes.js';
@@ -65,8 +66,10 @@ export async function buildApp(
   const engine = deps.engine ?? new EngineClient(config.engineUrl, db);
   const tablebase = new TablebaseClient(db);
   await app.register(analysisRoutes, { engine, tablebase });
-  const play = new PlayService(db, engine, deps.onGameFinished);
+  const onGameFinished = deps.onGameFinished ?? (async () => {});
+  const play = new PlayService(db, engine, onGameFinished);
   await app.register(playRoutes, { play });
+  await app.register(gamesRoutes, { db, requeue: onGameFinished });
 
   return app;
 }
