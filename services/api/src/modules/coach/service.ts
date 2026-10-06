@@ -132,7 +132,8 @@ export class CoachService {
     };
   }
 
-  async explain(userId: string, input: ExplainInput): Promise<ExplainResult> {
+  /** `dryRun`: niente salvataggio (verifica della pipeline da CLI, senza utente). */
+  async explain(userId: string, input: ExplainInput, opts: { dryRun?: boolean } = {}): Promise<ExplainResult> {
     // 1. validazione
     let fen: string;
     try {
@@ -210,6 +211,9 @@ export class CoachService {
       : this.factsOnly(facts, lines, tb, used);
 
     // 9. salvataggio
+    if (opts.dryRun) {
+      return { id: 'dry-run', ai: Boolean(answer), model, notice, ...base, ...result };
+    }
     const saved = await this.db
       .insertInto('coach_explanations')
       .values({
