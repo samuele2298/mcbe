@@ -94,7 +94,7 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(port, '0.0.0.0', () => {
+server.listen(port, process.env.ENGINE_HOST ?? '0.0.0.0', () => {
   console.log(`engine pronto: ${name} su :${port} (hash ${baseOptions.Hash} MB, threads ${baseOptions.Threads})`);
 });
 

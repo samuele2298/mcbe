@@ -41,4 +41,4 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   });
 }
 
-await app.listen({ port: config.port, host: '0.0.0.0' });
+await app.listen({ port: config.port, host: process.env.API_HOST ?? '0.0.0.0' });
