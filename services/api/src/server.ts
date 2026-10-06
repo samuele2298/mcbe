@@ -16,7 +16,7 @@ const engine = new EngineClient(config.engineUrl, db);
 // il logger della coda è quello di Fastify, creato dopo: si passa tramite un rimando
 let log: { info: (m: string) => void; error: (o: unknown, m: string) => void } = console;
 const analyzer = new GameAnalyzer(db, engine, (m) => log.info(m));
-const queue = await startQueue(config.databaseUrl, analyzer, {
+const queue = await startQueue(config.databaseUrl, db, analyzer, {
   info: (m) => log.info(m),
   error: (o, m) => log.error(o, m),
 });

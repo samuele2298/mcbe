@@ -93,12 +93,14 @@ export function analyzePosition(fen: string): PositionFacts {
   for (const st of structures) {
     s.push(`Struttura: ${STRUCTURE_IT[st.key]}${st.side ? ` (${colorName(st.side)})` : ''}.`);
   }
+  // con pochi pedoni "isolato" e "colonna aperta" non dicono nulla di utile
+  const fewPawns = mat.white.p + mat.black.p <= 4;
   for (const c of ['w', 'b'] as const) {
     if (pw[c].passed.length) s.push(`Pedoni passati del ${colorName(c)}: ${pw[c].passed.join(', ')}.`);
-    if (pw[c].isolated.length) s.push(`Pedoni isolati del ${colorName(c)}: ${pw[c].isolated.join(', ')}.`);
+    if (pw[c].isolated.length && !fewPawns) s.push(`Pedoni isolati del ${colorName(c)}: ${pw[c].isolated.join(', ')}.`);
     if (pw[c].doubled.length) s.push(`Pedoni doppiati del ${colorName(c)}: ${pw[c].doubled.join(', ')}.`);
   }
-  if (fi.open.length) {
+  if (fi.open.length && !fewPawns) {
     s.push(`Colonne aperte: ${fi.open.join(', ')}.`);
     if (ph !== 'endgame') themes.add('open_file');
   }

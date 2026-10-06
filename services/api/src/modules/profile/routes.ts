@@ -4,6 +4,7 @@ import type { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
 import type { Db } from '../../db/index.js';
 import { themeLabel } from '../../chess/themes.js';
 import { labelFor } from './labels.js';
+import { generateProfileNote } from './notes.js';
 
 const Weakness = Type.Object({
   dimension: Type.String(),
@@ -127,5 +128,22 @@ export const profileRoutes: FastifyPluginAsyncTypebox<{ db: Db }> = async (app, 
         history: history.rows.map((h) => ({ day: h.day, rating: h.rating, attempts: Number(h.attempts) })),
       };
     },
+  );
+
+  app.get('/me/profile', { schema: { tags: ['profile'] } }, async (req) => {
+    const note = await db
+      .selectFrom('profile_notes')
+      .select(['content', 'created_at'])
+      .where('user_id', '=', req.user.sub)
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+    return { note: note ? { content: note.content, createdAt: new Date(note.created_at).toISOString() } : null };
+  });
+
+  app.post(
+    '/me/profile/refresh',
+    { config: { rateLimit: { max: 3, timeWindow: '1 hour' } }, schema: { tags: ['profile'] } },
+    async (req) => ({ note: await generateProfileNote(db, req.user.sub) }),
   );
 };

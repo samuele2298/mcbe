@@ -13,6 +13,8 @@ import { healthRoutes } from './modules/health/routes.js';
 import { EngineClient } from './modules/engine/client.js';
 import { analysisRoutes } from './modules/engine/routes.js';
 import { TablebaseClient } from './modules/engine/tablebase.js';
+import { coachRoutes } from './modules/coach/routes.js';
+import { CoachService } from './modules/coach/service.js';
 import { gamesRoutes } from './modules/games/routes.js';
 import { knowledgeRoutes } from './modules/knowledge/routes.js';
 import { KnowledgeRetriever } from './modules/knowledge/retrieval.js';
@@ -78,6 +80,7 @@ export async function buildApp(
   const embedder = deps.embedder === undefined ? createEmbedder() : deps.embedder;
   const retriever = new KnowledgeRetriever(db, embedder);
   await app.register(knowledgeRoutes, { db, retriever });
+  await app.register(coachRoutes, { db, coach: new CoachService(db, engine, tablebase, retriever) });
 
   return app;
 }
