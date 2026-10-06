@@ -14,6 +14,9 @@ import { EngineClient } from './modules/engine/client.js';
 import { analysisRoutes } from './modules/engine/routes.js';
 import { TablebaseClient } from './modules/engine/tablebase.js';
 import { gamesRoutes } from './modules/games/routes.js';
+import { knowledgeRoutes } from './modules/knowledge/routes.js';
+import { KnowledgeRetriever } from './modules/knowledge/retrieval.js';
+import { createEmbedder, type Embedder } from './lib/embedder.js';
 import { playRoutes } from './modules/play/routes.js';
 import { PlayService } from './modules/play/service.js';
 import { profileRoutes } from './modules/profile/routes.js';
@@ -23,6 +26,7 @@ import { stormRoutes } from './modules/storm/routes.js';
 import { StormService } from './modules/storm/service.js';
 
 export interface AppDeps {
+  embedder?: Embedder | null;
   engine?: EngineClient;
   onGameFinished?: (gameId: string) => Promise<void>;
 }
@@ -70,6 +74,10 @@ export async function buildApp(
   const play = new PlayService(db, engine, onGameFinished);
   await app.register(playRoutes, { play });
   await app.register(gamesRoutes, { db, requeue: onGameFinished });
+
+  const embedder = deps.embedder === undefined ? createEmbedder() : deps.embedder;
+  const retriever = new KnowledgeRetriever(db, embedder);
+  await app.register(knowledgeRoutes, { db, retriever });
 
   return app;
 }

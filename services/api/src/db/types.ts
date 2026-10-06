@@ -178,6 +178,62 @@ export interface MistakesTable {
   created_at: Timestamp;
 }
 
+export interface KnowledgeDocsTable {
+  id: Generated<string>;
+  path: string;
+  title: string;
+  source_type: string;
+  source_ref: string | null;
+  license: string | null;
+  verified: boolean;
+  content_hash: string;
+  indexed_at: Timestamp;
+}
+
+export interface KnowledgeChunksTable {
+  id: Generated<string>;
+  doc_id: string;
+  position: number;
+  heading: string;
+  content: string;
+  token_count: number;
+  eco: string[];
+  structures: string[];
+  themes: string[];
+  phase: string | null;
+  endgame_type: string | null;
+  fen: string | null;
+  min_level: number | null;
+  max_level: number | null;
+  verified: boolean;
+  /** pgvector: si scrive come stringa '[0.1,0.2,...]' */
+  embedding: string | null;
+}
+
+export interface CoachExplanationsTable {
+  id: Generated<string>;
+  user_id: string;
+  fen: string;
+  question: string | null;
+  facts: unknown;
+  chunk_ids: string[];
+  response: unknown;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  feedback: 'wrong' | 'useful' | null;
+  feedback_note: string | null;
+  created_at: Timestamp;
+}
+
+export interface ProfileNotesTable {
+  id: Generated<string>;
+  user_id: string;
+  content: string;
+  based_on: unknown;
+  created_at: Timestamp;
+}
+
 export interface Database {
   users: UsersTable;
   refresh_tokens: RefreshTokensTable;
@@ -193,4 +249,8 @@ export interface Database {
   games: GamesTable;
   game_moves: GameMovesTable;
   mistakes: MistakesTable;
+  knowledge_docs: KnowledgeDocsTable;
+  knowledge_chunks: KnowledgeChunksTable;
+  coach_explanations: CoachExplanationsTable;
+  profile_notes: ProfileNotesTable;
 }

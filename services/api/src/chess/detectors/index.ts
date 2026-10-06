@@ -86,7 +86,10 @@ export function analyzePosition(fen: string): PositionFacts {
   } else {
     s.push(`Materiale pari (${materialSignature(mat)}).`);
   }
-  if (mat.bishopPair) s.push(`Il ${colorName(mat.bishopPair)} ha la coppia degli alfieri.`);
+  if (mat.bishopPair) {
+    s.push(`Il ${colorName(mat.bishopPair)} ha la coppia degli alfieri.`);
+    themes.add('bishop_pair');
+  }
   for (const st of structures) {
     s.push(`Struttura: ${STRUCTURE_IT[st.key]}${st.side ? ` (${colorName(st.side)})` : ''}.`);
   }
@@ -95,7 +98,11 @@ export function analyzePosition(fen: string): PositionFacts {
     if (pw[c].isolated.length) s.push(`Pedoni isolati del ${colorName(c)}: ${pw[c].isolated.join(', ')}.`);
     if (pw[c].doubled.length) s.push(`Pedoni doppiati del ${colorName(c)}: ${pw[c].doubled.join(', ')}.`);
   }
-  if (fi.open.length) s.push(`Colonne aperte: ${fi.open.join(', ')}.`);
+  if (fi.open.length) {
+    s.push(`Colonne aperte: ${fi.open.join(', ')}.`);
+    if (ph !== 'endgame') themes.add('open_file');
+  }
+  if (structures.some((x) => x.key === 'carlsbad')) themes.add('minority_attack');
   if (tactics.matesInOne.length) {
     s.push(`Il ${colorName(stm)} ha matto in una.`);
     themes.add('mateIn1');
@@ -134,12 +141,31 @@ export function analyzePosition(fen: string): PositionFacts {
     if (endgame.opposition) s.push(`Il ${colorName(endgame.opposition)} ha l'opposizione ${endgame.oppositionKind === 'direct' ? 'diretta' : 'a distanza'}.`);
     if (endgame.attackerOnKeySquare) s.push('Il re attaccante occupa una casa chiave del pedone.');
     themes.add('pawnEndgame');
+    themes.add('square_rule');
+    themes.add('opposition');
+    themes.add('key_squares');
   }
   if (endgame?.type === 'rook_pawn') {
-    if (endgame.lucena) s.push('Posizione di Lucena: il lato forte vince costruendo il ponte.');
-    if (endgame.philidor) s.push('Posizione di Philidor: il difensore tiene la patta con la torre sulla terza traversa.');
-    if (endgame.defenderKingCutOff >= 1) s.push(`Il re difensore è tagliato fuori di ${endgame.defenderKingCutOff} colonna/e.`);
-    if (endgame.rookBehindPawn) s.push('La torre attaccante è dietro il pedone passato.');
+    if (endgame.lucena) {
+      s.push('Posizione di Lucena: il lato forte vince costruendo il ponte.');
+      themes.add('lucena');
+    }
+    if (endgame.philidor) {
+      s.push('Posizione di Philidor: il difensore tiene la patta con la torre sulla terza traversa.');
+      themes.add('philidor');
+    }
+    if (endgame.defenderKingCutOff >= 1) {
+      s.push(`Il re difensore è tagliato fuori di ${endgame.defenderKingCutOff} colonna/e.`);
+      themes.add('cut_off_king');
+    }
+    if (endgame.rookBehindPawn) {
+      s.push('La torre attaccante è dietro il pedone passato.');
+      themes.add('rook_behind_passed_pawn');
+    }
+    // senza Lucena/Philidor già formate, entrambe le idee restano il riferimento del finale T+P vs T
+    if (!endgame.lucena && !endgame.philidor) {
+      themes.add(endgame.pawnRelRank >= 6 ? 'lucena' : 'philidor');
+    }
     themes.add('rookEndgame');
   }
   if (egType === 'rook') themes.add('rookEndgame');
