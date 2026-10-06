@@ -19,6 +19,7 @@ export interface Config {
   refreshTokenTtlDays: number;
   adminEmails: string[];
   corsOrigins: string[];
+  engineUrl: string;
 }
 
 export function loadConfig(): Config {
@@ -32,5 +33,6 @@ export function loadConfig(): Config {
     refreshTokenTtlDays: Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? 30),
     adminEmails: list('ADMIN_EMAILS').map((e) => e.toLowerCase()),
     corsOrigins: list('CORS_ORIGINS'),
+    engineUrl: process.env.ENGINE_URL ?? 'http://localhost:4000',
   };
 }

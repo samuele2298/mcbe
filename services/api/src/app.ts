@@ -10,16 +10,27 @@ import { authPlugin } from './modules/auth/plugin.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { AuthService } from './modules/auth/service.js';
 import { healthRoutes } from './modules/health/routes.js';
+import { EngineClient } from './modules/engine/client.js';
+import { analysisRoutes } from './modules/engine/routes.js';
+import { TablebaseClient } from './modules/engine/tablebase.js';
+import { playRoutes } from './modules/play/routes.js';
+import { PlayService } from './modules/play/service.js';
 import { profileRoutes } from './modules/profile/routes.js';
 import { puzzleRoutes } from './modules/puzzles/routes.js';
 import { PuzzleService } from './modules/puzzles/service.js';
 import { stormRoutes } from './modules/storm/routes.js';
 import { StormService } from './modules/storm/service.js';
 
+export interface AppDeps {
+  engine?: EngineClient;
+  onGameFinished?: (gameId: string) => Promise<void>;
+}
+
 export async function buildApp(
   config: Config,
   db: Db,
   opts: FastifyServerOptions = {},
+  deps: AppDeps = {},
 ) {
   const app = Fastify({ ...opts, ajv: { customOptions: { allErrors: false } } })
     .withTypeProvider<TypeBoxTypeProvider>();
@@ -50,6 +61,12 @@ export async function buildApp(
   await app.register(puzzleRoutes, { puzzles });
   await app.register(stormRoutes, { storm: new StormService(db, puzzles) });
   await app.register(profileRoutes, { db });
+
+  const engine = deps.engine ?? new EngineClient(config.engineUrl, db);
+  const tablebase = new TablebaseClient(db);
+  await app.register(analysisRoutes, { engine, tablebase });
+  const play = new PlayService(db, engine, deps.onGameFinished);
+  await app.register(playRoutes, { play });
 
   return app;
 }

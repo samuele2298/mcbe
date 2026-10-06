@@ -41,9 +41,12 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       API_PORT: 3000
+      ENGINE_URL: http://engine:4000
     depends_on:
       db:
         condition: service_healthy
+      engine:
+        condition: service_started
     # nginx sul host fa da reverse proxy verso 127.0.0.1:3000
     ports:
       - "127.0.0.1:${API_PORT:-3000}:3000"
@@ -55,14 +58,15 @@ services:
       dockerfile: services/engine/Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      STOCKFISH_PATH: /usr/games/stockfish
+      STOCKFISH_PATH: /usr/local/bin/stockfish
       STOCKFISH_HASH_MB: 64
       STOCKFISH_THREADS: 1
-    depends_on:
-      db:
-        condition: service_healthy
-    mem_limit: 256m
+      ENGINE_PORT: 4000
+    # esposto solo su localhost per lo sviluppo dell'API fuori da Docker
+    ports:
+      - "127.0.0.1:${ENGINE_HOST_PORT:-4000}:4000"
+    # Stockfish 19 + rete NNUE occupano ~330 MB
+    mem_limit: 448m
     cpus: 1.5
 
 volumes:

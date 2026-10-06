@@ -1,5 +1,5 @@
 import { sql } from 'kysely';
-import { buildApp } from '../src/app.js';
+import { buildApp, type AppDeps } from '../src/app.js';
 import type { Config } from '../src/config/env.js';
 import { createDb, createPool, type Db } from '../src/db/index.js';
 import { migrate } from '../src/db/migrate.js';
@@ -15,13 +15,14 @@ export const testConfig: Config = {
   refreshTokenTtlDays: 30,
   adminEmails: ['admin@example.com'],
   corsOrigins: [],
+  engineUrl: process.env.TEST_ENGINE_URL ?? 'http://localhost:4000',
 };
 
-export async function setupTestApp(overrides: Partial<Config> = {}) {
+export async function setupTestApp(overrides: Partial<Config> = {}, deps: AppDeps = {}) {
   const pool = createPool(testDbUrl!, 3);
   const db = createDb(pool);
   await migrate(pool, undefined, () => {});
-  const app = await buildApp({ ...testConfig, ...overrides }, db);
+  const app = await buildApp({ ...testConfig, ...overrides }, db, {}, deps);
   return { app, db };
 }
 

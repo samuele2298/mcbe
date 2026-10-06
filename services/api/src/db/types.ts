@@ -109,6 +109,75 @@ export interface SrsCardsTable {
   last_review: Timestamp | null;
 }
 
+export interface EngineCacheTable {
+  fen: string;
+  depth: number;
+  multipv: number;
+  result: unknown;
+  created_at: Generated<Timestamp>;
+}
+
+export interface TablebaseCacheTable {
+  fen: string;
+  result: unknown;
+  created_at: Generated<Timestamp>;
+}
+
+export interface GamesTable {
+  id: Generated<string>;
+  user_id: string;
+  source: 'play' | 'adaptive' | 'lichess' | 'chesscom';
+  mode: Generated<'normal' | 'training' | 'adaptive'>;
+  external_id: string | null;
+  start_fen: string;
+  moves: Generated<string[]>;
+  pgn: string | null;
+  user_color: 'white' | 'black';
+  result: string | null;
+  termination: string | null;
+  opponent_elo: number | null;
+  opponent_name: string | null;
+  adaptive_target: string | null;
+  analysis_status: Generated<'none' | 'queued' | 'running' | 'done' | 'failed'>;
+  accuracy: number | null;
+  played_at: Generated<Timestamp>;
+  finished_at: Timestamp | null;
+}
+
+export interface GameMovesTable {
+  game_id: string;
+  ply: number;
+  fen_before: string;
+  uci: string;
+  san: string;
+  by_user: boolean;
+  eval_before: number | null;
+  eval_after: number | null;
+  best_uci: string | null;
+  best_pv: string[] | null;
+  win_pct_loss: number | null;
+  classification: 'best' | 'ok' | 'inaccuracy' | 'mistake' | 'blunder' | null;
+}
+
+export interface MistakesTable {
+  id: Generated<string>;
+  user_id: string;
+  game_id: string | null;
+  ply: number | null;
+  fen: string;
+  played_uci: string;
+  best_uci: string | null;
+  phase: string | null;
+  category: string;
+  motif: string | null;
+  structure: string | null;
+  eco: string | null;
+  severity: string;
+  explanation: unknown;
+  puzzle_id: string | null;
+  created_at: Generated<Timestamp>;
+}
+
 export interface Database {
   users: UsersTable;
   refresh_tokens: RefreshTokensTable;
@@ -119,4 +188,9 @@ export interface Database {
   weakness_stats: WeaknessStatsTable;
   storm_runs: StormRunsTable;
   srs_cards: SrsCardsTable;
+  engine_cache: EngineCacheTable;
+  tablebase_cache: TablebaseCacheTable;
+  games: GamesTable;
+  game_moves: GameMovesTable;
+  mistakes: MistakesTable;
 }
