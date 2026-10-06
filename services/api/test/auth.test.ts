@@ -1,35 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { sql } from 'kysely';
-import { buildApp } from '../src/app.js';
-import { createDb, createPool } from '../src/db/index.js';
-import { migrate } from '../src/db/migrate.js';
+import type { Db } from '../src/db/index.js';
+import { resetUsers, setupTestApp, testDbUrl } from './helpers.js';
 
-// Test di integrazione: richiede TEST_DATABASE_URL (un DB dedicato, viene svuotato).
-const url = process.env.TEST_DATABASE_URL;
-
-describe.skipIf(!url)('auth', () => {
-  const pool = createPool(url ?? '', 2);
-  const db = createDb(pool);
-  let app: Awaited<ReturnType<typeof buildApp>>;
+describe.skipIf(!testDbUrl)('auth', () => {
+  let app: Awaited<ReturnType<typeof setupTestApp>>['app'];
+  let db: Db;
 
   beforeAll(async () => {
-    await migrate(pool, undefined, () => {});
-    app = await buildApp(
-      {
-        databaseUrl: url!,
-        port: 0,
-        jwtSecret: 'x'.repeat(32),
-        accessTokenTtl: '15m',
-        refreshTokenTtlDays: 30,
-        adminEmails: ['admin@example.com'],
-        corsOrigins: [],
-      },
-      db,
-    );
+    ({ app, db } = await setupTestApp());
   });
 
   beforeEach(async () => {
-    await sql`TRUNCATE users CASCADE`.execute(db);
+    await resetUsers(db);
   });
 
   afterAll(async () => {

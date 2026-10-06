@@ -10,6 +10,11 @@ import { authPlugin } from './modules/auth/plugin.js';
 import { authRoutes } from './modules/auth/routes.js';
 import { AuthService } from './modules/auth/service.js';
 import { healthRoutes } from './modules/health/routes.js';
+import { profileRoutes } from './modules/profile/routes.js';
+import { puzzleRoutes } from './modules/puzzles/routes.js';
+import { PuzzleService } from './modules/puzzles/service.js';
+import { stormRoutes } from './modules/storm/routes.js';
+import { StormService } from './modules/storm/service.js';
 
 export async function buildApp(
   config: Config,
@@ -40,6 +45,11 @@ export async function buildApp(
 
   await app.register(healthRoutes, { db });
   await app.register(authRoutes, { auth });
+
+  const puzzles = new PuzzleService(db);
+  await app.register(puzzleRoutes, { puzzles });
+  await app.register(stormRoutes, { storm: new StormService(db, puzzles) });
+  await app.register(profileRoutes, { db });
 
   return app;
 }
